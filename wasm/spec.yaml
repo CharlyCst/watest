@@ -1,0 +1,13 @@
+file: 'wasm/add.wasm'
+funs:
+  add:
+    args: [i32, i32]
+    out: i32
+    test:
+      with:
+        - [40, 2]
+        - [44, -2]
+      expect:
+        - 42
+        - 42
+

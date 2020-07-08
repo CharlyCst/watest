@@ -8,4 +8,5 @@ edition = "2018"
 
 [dependencies]
 wasmtime = "0.18.0"
+serde_yaml = "0.8.13"
 
