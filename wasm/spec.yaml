@@ -1,6 +1,6 @@
 file: 'wasm/add.wasm'
 funs:
-  add:
+  _start:
     args: [i32, i32]
     out: i32
     test:

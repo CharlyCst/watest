@@ -1,6 +1,17 @@
 use serde_yaml::{from_str, Value};
 use std::path::PathBuf;
 
+pub struct Test {
+    pub funs: Vec<FunTest>,
+    pub path: PathBuf,
+}
+
+pub struct FunTest {
+    pub name: String,
+    pub args: Args,
+    pub out: Type,
+}
+
 pub enum Type {
     I32,
     I64,
@@ -10,44 +21,45 @@ pub enum Type {
 
 type Args = Vec<Type>;
 
-pub fn parse(yaml: &str) {
+pub fn parse(yaml: &str) -> Result<Test, String> {
     let yaml = match from_str::<Value>(&yaml) {
         Ok(yaml) => yaml,
         Err(err) => {
-            println!("{}", err);
-            return;
+            return Err(err.to_string());
         }
     };
-    println!("{:#?}", yaml);
-    match root(yaml) {
-        Ok(()) => println!("Parsed!"),
-        Err(err) => println!("{}", err),
-    }
+    // println!("{:#?}", yaml);
+    parse_root(yaml)
 }
 
-fn root(val: Value) -> Result<(), String> {
+fn parse_root(val: Value) -> Result<Test, String> {
     match val {
         Value::Mapping(map) => {
-            let mut wasm_file: Option<PathBuf> = None;
+            let mut wasm_file = None;
+            let mut funs = Vec::new();
             for (key, val) in &map {
                 if let Value::String(s) = key {
                     println!("{}", s);
                     match s as &str {
-                        "file" => wasm_file = Some(file(val)?),
-                        "funs" => funs(val)?,
+                        "file" => wasm_file = Some(parse_file(val)?),
+                        "funs" => funs.extend(parse_funs(val)?),
                         _ => return Err(format!("Unknown key in root object: '{}'.", s)),
                     }
                 } else {
                     return Err(String::from("Root keys must be string litterals."));
                 }
             }
-            Ok(())
+            if let Some(path) = wasm_file {
+                Ok(Test { path, funs })
+            } else {
+                Err(String::from("Missing wasm file path."))
+            }
         }
         _ => Err(String::from("The root declaration must be a mapping")),
     }
 }
 
-fn file(val: &Value) -> Result<PathBuf, String> {
+fn parse_file(val: &Value) -> Result<PathBuf, String> {
     match val {
         Value::String(file_name) => {
             let path = PathBuf::from(file_name);
@@ -61,33 +73,38 @@ fn file(val: &Value) -> Result<PathBuf, String> {
     }
 }
 
-fn funs(val: &Value) -> Result<(), String> {
+fn parse_funs(val: &Value) -> Result<Vec<FunTest>, String> {
     match val {
         Value::Mapping(map) => {
+            let mut funs = Vec::new();
             for (key, val) in map {
                 if let Value::String(fun_name) = key {
-                    fun(val)?;
+                    let mut fun = parse_fun(val)?;
+                    fun.name = fun_name.clone();
+                    funs.push(fun);
                 } else {
                     return Err(String::from("Function names must be string literrals."));
                 }
             }
-            Ok(())
+            Ok(funs)
         }
         _ => Err(String::from("Functions ('funs') must be a mapping.")),
     }
 }
 
-fn fun(val: &Value) -> Result<(), String> {
+fn parse_fun(val: &Value) -> Result<FunTest, String> {
     match val {
         Value::Mapping(map) => {
+            let mut args = None;
+            let mut out = None;
             for (key, val) in map {
                 if let Value::String(attribute) = key {
                     match attribute as &str {
                         "args" => {
-                            args(val)?;
+                            args = Some(parse_args(val)?);
                         }
                         "out" => {
-                            out(val)?;
+                            out = Some(parse_out(val)?);
                         }
                         "test" => (),
                         _ => return Err(format!("Unknown function attribute '{}'.", attribute)),
@@ -98,13 +115,25 @@ fn fun(val: &Value) -> Result<(), String> {
                     ));
                 }
             }
-            Ok(())
+            if let Some(args) = args {
+                if let Some(out) = out {
+                    Ok(FunTest {
+                        name: String::from(""),
+                        args,
+                        out,
+                    })
+                } else {
+                    Err(String::from("Missing return type in function."))
+                }
+            } else {
+                Err(String::from("Missing arguments type in function."))
+            }
         }
         _ => Err(String::from("Functions (`fun`) must be mappings.")),
     }
 }
 
-fn args(val: &Value) -> Result<Args, String> {
+fn parse_args(val: &Value) -> Result<Args, String> {
     match val {
         Value::Sequence(seq) => {
             let mut args = Vec::with_capacity(seq.len());
@@ -112,8 +141,7 @@ fn args(val: &Value) -> Result<Args, String> {
                 if let Value::String(s) = arg {
                     args.push(type_from_str(&s)?);
                 } else {
-                    let err = String::from("Argument type must be a string litteral.");
-                    return Err(err);
+                    return Err(String::from("Argument type must be a string litteral."));
                 }
             }
             Ok(args)
@@ -125,7 +153,7 @@ fn args(val: &Value) -> Result<Args, String> {
     }
 }
 
-fn out(val: &Value) -> Result<Type, String> {
+fn parse_out(val: &Value) -> Result<Type, String> {
     match val {
         Value::String(s) => type_from_str(&s),
         _ => Err(String::from("Expect a string litteral for `out`.")),
