@@ -1,15 +1,21 @@
-use serde_yaml::{from_str, Value};
+use serde_yaml::{from_str, Number, Value};
 use std::path::PathBuf;
 
-pub struct Test {
-    pub funs: Vec<FunTest>,
+pub struct Module {
+    pub funs: Vec<Fun>,
     pub path: PathBuf,
 }
 
-pub struct FunTest {
+pub struct Fun {
     pub name: String,
     pub args: Args,
     pub out: Type,
+    pub test: Option<Test>,
+}
+
+pub struct Test {
+    inputs: Vec<Vec<Number>>,
+    outputs: Option<Vec<Vec<Number>>>,
 }
 
 pub enum Type {
@@ -21,7 +27,7 @@ pub enum Type {
 
 type Args = Vec<Type>;
 
-pub fn parse(yaml: &str) -> Result<Test, String> {
+pub fn parse(yaml: &str) -> Result<Module, String> {
     let yaml = match from_str::<Value>(&yaml) {
         Ok(yaml) => yaml,
         Err(err) => {
@@ -32,7 +38,7 @@ pub fn parse(yaml: &str) -> Result<Test, String> {
     parse_root(yaml)
 }
 
-fn parse_root(val: Value) -> Result<Test, String> {
+fn parse_root(val: Value) -> Result<Module, String> {
     match val {
         Value::Mapping(map) => {
             let mut wasm_file = None;
@@ -50,7 +56,7 @@ fn parse_root(val: Value) -> Result<Test, String> {
                 }
             }
             if let Some(path) = wasm_file {
-                Ok(Test { path, funs })
+                Ok(Module { path, funs })
             } else {
                 Err(String::from("Missing wasm file path."))
             }
@@ -73,7 +79,7 @@ fn parse_file(val: &Value) -> Result<PathBuf, String> {
     }
 }
 
-fn parse_funs(val: &Value) -> Result<Vec<FunTest>, String> {
+fn parse_funs(val: &Value) -> Result<Vec<Fun>, String> {
     match val {
         Value::Mapping(map) => {
             let mut funs = Vec::new();
@@ -92,11 +98,12 @@ fn parse_funs(val: &Value) -> Result<Vec<FunTest>, String> {
     }
 }
 
-fn parse_fun(val: &Value) -> Result<FunTest, String> {
+fn parse_fun(val: &Value) -> Result<Fun, String> {
     match val {
         Value::Mapping(map) => {
             let mut args = None;
             let mut out = None;
+            let mut test = None;
             for (key, val) in map {
                 if let Value::String(attribute) = key {
                     match attribute as &str {
@@ -106,7 +113,9 @@ fn parse_fun(val: &Value) -> Result<FunTest, String> {
                         "out" => {
                             out = Some(parse_out(val)?);
                         }
-                        "test" => (),
+                        "test" => {
+                            test = Some(parse_test(val)?);
+                        }
                         _ => return Err(format!("Unknown function attribute '{}'.", attribute)),
                     }
                 } else {
@@ -117,10 +126,11 @@ fn parse_fun(val: &Value) -> Result<FunTest, String> {
             }
             if let Some(args) = args {
                 if let Some(out) = out {
-                    Ok(FunTest {
+                    Ok(Fun {
                         name: String::from(""),
                         args,
                         out,
+                        test,
                     })
                 } else {
                     Err(String::from("Missing return type in function."))
@@ -157,6 +167,96 @@ fn parse_out(val: &Value) -> Result<Type, String> {
     match val {
         Value::String(s) => type_from_str(&s),
         _ => Err(String::from("Expect a string litteral for `out`.")),
+    }
+}
+
+fn parse_test(val: &Value) -> Result<Test, String> {
+    match val {
+        Value::Mapping(map) => {
+            let mut inputs = None;
+            let mut outputs = None;
+            for (key, val) in map {
+                if let Value::String(s) = key {
+                    match s as &str {
+                        "with" => inputs = Some(parse_test_with(val)?),
+                        "expect" => outputs = Some(parse_test_expect(val)?),
+                        _ => return Err(format!("Unknown key in func object: '{}'.", s)),
+                    }
+                } else {
+                    return Err(String::from("Root keys must be string litterals."));
+                }
+            }
+            if let Some(inputs) = inputs {
+                Ok(Test { inputs, outputs })
+            } else {
+                Err(String::from(
+                    "A `test` must include input values with `with` declaration.",
+                ))
+            }
+        }
+        _ => Err(String::from(
+            "A function `test` attribute must be a mapping.",
+        )),
+    }
+}
+
+fn parse_test_with(val: &Value) -> Result<Vec<Vec<Number>>, String> {
+    match val {
+        Value::Sequence(seq) => {
+            let mut test_inputs = Vec::new();
+            for inputs in seq {
+                let values = match inputs {
+                    Value::Sequence(seq) => {
+                        let mut values = Vec::with_capacity(seq.len());
+                        for val in seq {
+                            if let Value::Number(n) = val {
+                                values.push(n);
+                            } else {
+                                return Err(String::from("Test values must be numbers."));
+                            };
+                        }
+                        values
+                    },
+                    Value::Number(n) => vec![n],
+                    _ => return Err(String::from("Test input values (`with` attribute) must be either numbers or sequences of numbers."))
+                };
+                test_inputs.push(values)
+            }
+            Err(String::from(""))
+        }
+        _ => Err(String::from(
+            "The `with` attribute of test must be a sequence.",
+        )),
+    }
+}
+
+fn parse_test_expect(val: &Value) -> Result<Vec<Vec<Number>>, String> {
+    match val {
+        Value::Sequence(seq) => {
+            let mut test_inputs = Vec::new();
+            for inputs in seq {
+                let values = match inputs {
+                    Value::Sequence(seq) => {
+                        let mut values = Vec::with_capacity(seq.len());
+                        for val in seq {
+                            if let Value::Number(n) = val {
+                                values.push(n);
+                            } else {
+                                return Err(String::from("Test values must be numbers."));
+                            };
+                        }
+                        values
+                    },
+                    Value::Number(n) => vec![n],
+                    _ => return Err(String::from("Test output values (`expect` attribute) must be either numbers or sequences of numbers."))
+                };
+                test_inputs.push(values)
+            }
+            Err(String::from(""))
+        }
+        _ => Err(String::from(
+            "The `expect` attribute of test must be a sequence.",
+        )),
     }
 }
 
