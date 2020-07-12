@@ -14,8 +14,8 @@ pub struct Fun {
 }
 
 pub struct Test {
-    inputs: Vec<Vec<Number>>,
-    outputs: Option<Vec<Vec<Number>>>,
+    pub inputs: Vec<Vec<Number>>,
+    pub outputs: Option<Vec<Vec<Number>>>,
 }
 
 pub enum Type {
