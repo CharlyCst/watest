@@ -34,7 +34,6 @@ pub fn parse(yaml: &str) -> Result<Module, String> {
             return Err(err.to_string());
         }
     };
-    // println!("{:#?}", yaml);
     parse_root(yaml)
 }
 
@@ -45,7 +44,6 @@ fn parse_root(val: Value) -> Result<Module, String> {
             let mut funs = Vec::new();
             for (key, val) in &map {
                 if let Value::String(s) = key {
-                    println!("{}", s);
                     match s as &str {
                         "file" => wasm_file = Some(parse_file(val)?),
                         "funs" => funs.extend(parse_funs(val)?),
@@ -210,19 +208,19 @@ fn parse_test_with(val: &Value) -> Result<Vec<Vec<Number>>, String> {
                         let mut values = Vec::with_capacity(seq.len());
                         for val in seq {
                             if let Value::Number(n) = val {
-                                values.push(n);
+                                values.push(n.clone());
                             } else {
                                 return Err(String::from("Test values must be numbers."));
                             };
                         }
                         values
                     },
-                    Value::Number(n) => vec![n],
+                    Value::Number(n) => vec![n.clone()],
                     _ => return Err(String::from("Test input values (`with` attribute) must be either numbers or sequences of numbers."))
                 };
                 test_inputs.push(values)
             }
-            Err(String::from(""))
+            Ok(test_inputs)
         }
         _ => Err(String::from(
             "The `with` attribute of test must be a sequence.",
@@ -233,26 +231,26 @@ fn parse_test_with(val: &Value) -> Result<Vec<Vec<Number>>, String> {
 fn parse_test_expect(val: &Value) -> Result<Vec<Vec<Number>>, String> {
     match val {
         Value::Sequence(seq) => {
-            let mut test_inputs = Vec::new();
+            let mut test_outputs = Vec::new();
             for inputs in seq {
                 let values = match inputs {
                     Value::Sequence(seq) => {
                         let mut values = Vec::with_capacity(seq.len());
                         for val in seq {
                             if let Value::Number(n) = val {
-                                values.push(n);
+                                values.push(n.clone());
                             } else {
                                 return Err(String::from("Test values must be numbers."));
                             };
                         }
                         values
                     },
-                    Value::Number(n) => vec![n],
+                    Value::Number(n) => vec![n.clone()],
                     _ => return Err(String::from("Test output values (`expect` attribute) must be either numbers or sequences of numbers."))
                 };
-                test_inputs.push(values)
+                test_outputs.push(values)
             }
-            Err(String::from(""))
+            Ok(test_outputs)
         }
         _ => Err(String::from(
             "The `expect` attribute of test must be a sequence.",
