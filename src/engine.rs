@@ -48,12 +48,20 @@ fn test_fun(fun: &Fun, instance: &Instance) -> Result<(), String> {
                     continue;
                 }
             };
-            match callable.call(&input) {
-                Ok(result) => println!("Success: {:?}", result),
-                Err(_) => println!("Function trapped."),
+            let result = match callable.call(&input) {
+                Ok(result) => {
+                    // println!("Success: {:?}", result);
+                    result
+                }
+                Err(_) => {
+                    println!("Function trapped.");
+                    continue;
+                }
             };
+            if let Err(err) = test_equality(output, result.as_ref()) {
+                println!("{}", err);
+            }
         }
-        // TODO
     }
     Ok(())
 }
@@ -91,4 +99,52 @@ fn prepare_values(types: &Vec<Type>, values: &Vec<YamlNumber>) -> Result<Vec<Val
         prepared_values.push(prepared_value);
     }
     Ok(prepared_values)
+}
+
+fn test_equality(target: &Vec<YamlNumber>, result: &[Val]) -> Result<(), String> {
+    if target.len() != result.len() {
+        return Err(format!("Expected {} values, got {}.", target.len(), result.len()));
+    }
+    for (target, result) in target.iter().zip(result.iter()) {
+        match result {
+            Val::I32(n) => {
+                if let Some(m) = target.as_i64() {
+                    if *n != m as i32 {
+                        return Err(format!("Expected {}, got {}", m, n));
+                    }
+                } else {
+                    return Err(String::from("Unexpected return type"));
+                }
+            }
+            Val::I64(n) => {
+                if let Some(m) = target.as_i64() {
+                    if *n != m {
+                        return Err(format!("Expected {}, got {}", m, n));
+                    }
+                } else {
+                    return Err(String::from("Unexpected return type"));
+                }
+            }
+            Val::F32(x) => {
+                if let Some(y) = target.as_f64() {
+                    if *x != (y as f32).to_bits() {
+                        return Err(format!("Expected {}, got {}", y as f32, f32::from_bits(*x)));
+                    }
+                } else {
+                    return Err(String::from("Unexpected return type"));
+                }
+            }
+            Val::F64(x) => {
+                if let Some(y) = target.as_f64() {
+                    if *x != y.to_bits() {
+                        return Err(format!("Expected {}, got {}", y, x));
+                    }
+                } else {
+                    return Err(String::from("Unexpected return type"));
+                }
+            }
+            _ => return Err(String::from("Unexpected return type")),
+        }
+    }
+    Ok(())
 }

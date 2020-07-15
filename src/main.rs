@@ -4,7 +4,7 @@ mod engine;
 mod parser;
 
 fn main() {
-    let yaml = fs::read_to_string("wasm/spec.yaml");
+    let yaml = fs::read_to_string("wasm/mult.yaml");
     let yaml = match yaml {
         Ok(s) => s,
         Err(err) => {
