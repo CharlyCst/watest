@@ -2,27 +2,28 @@ use serde_yaml::Number as YamlNumber;
 use wasmtime::{Engine, Instance, Module, Store, Val};
 
 use crate::parser::{Fun, Module as ModuleSpec, Type};
+use crate::error::ErrorHandler;
 
-pub fn run_test(module_spec: ModuleSpec) {
+pub fn run_test(module_spec: ModuleSpec) -> ErrorHandler {
     let engine = Engine::default();
     let module = Module::from_file(&engine, module_spec.path).unwrap();
     let store = Store::new(&engine);
     let instance = Instance::new(&store, &module, &[]).unwrap();
+    let mut handler = ErrorHandler::new();
 
     for fun in &module_spec.funs {
-        match test_fun(fun, &instance) {
-            Ok(_) => (),
-            Err(err) => println!("{}", err),
-        }
+        test_fun(fun, &instance, &mut handler);
     }
+
+    handler
 }
 
-fn test_fun(fun: &Fun, instance: &Instance) -> Result<(), String> {
+fn test_fun(fun: &Fun, instance: &Instance, handler: &mut ErrorHandler) {
     let callable = instance.get_func(&fun.name);
     let callable = if let Some(callable) = callable {
         callable
     } else {
-        return Err(format!("No function named '{}'.", fun.name));
+        return handler.report(fun.name.clone(), format!("No function named '{}'.", fun.name));
     };
 
     if let Some(test) = &fun.test {
@@ -38,37 +39,34 @@ fn test_fun(fun: &Fun, instance: &Instance) -> Result<(), String> {
         };
 
         if inputs.len() != outputs.len() {
-            return Err(format!("The number of expected output must match the number of inputs. Got {}, expected {}.", outputs.len(), inputs.len()));
+            return handler.report(fun.name.clone(), format!("The number of expected output must match the number of inputs. Got {}, expected {}.", outputs.len(), inputs.len()));
         }
         for (input, output) in inputs.iter().zip(outputs.iter()) {
             let input = match prepare_values(&fun.args, input) {
                 Ok(input) => input,
                 Err(err) => {
-                    println!("{}", err);
+                    handler.report(fun.name.clone(), err);
                     continue;
                 }
             };
             let result = match callable.call(&input) {
                 Ok(result) => {
-                    // println!("Success: {:?}", result);
                     result
                 }
                 Err(_) => {
-                    println!("Function trapped.");
+                    handler.report(fun.name.clone(), String::from("Function trapped."));
                     continue;
                 }
             };
             if let Err(err) = test_equality(output, result.as_ref()) {
-                println!("{}", err);
+                handler.report(fun.name.clone(), err)
             }
         }
     }
-    Ok(())
 }
 
 fn prepare_values(types: &Vec<Type>, values: &Vec<YamlNumber>) -> Result<Vec<Val>, String> {
     let mut prepared_values = Vec::with_capacity(values.len());
-    // Err(String::from("YAML error: could not cast numbers into the correct types."));
 
     if types.len() != values.len() {
         return Err(format!(

@@ -1,0 +1,14 @@
+file: 'wasm/mult.wasm'
+funs:
+  mult:
+    args: [f32, f32]
+    out: f32
+    test:
+      with:
+        - [2, 3]
+        - [3.14, 2]
+        - [4.2, -2]
+      expect:
+        - 5
+        - 6.14
+        - -8.4

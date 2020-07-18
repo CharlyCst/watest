@@ -3,6 +3,7 @@ use std::fs;
 mod engine;
 mod parser;
 mod cli;
+mod error;
 
 fn main() {
     let config = cli::parse();
@@ -21,6 +22,13 @@ fn main() {
             std::process::exit(1);
         }
     };
-    engine::run_test(test);
+
+    let handler = engine::run_test(test);
+    handler.print();
+    if handler.has_error() {
+        std::process::exit(1);
+    } else {
+        std::process::exit(0);
+    }
 }
 
