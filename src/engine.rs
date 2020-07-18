@@ -137,7 +137,7 @@ fn test_equality(target: &Vec<YamlNumber>, result: &[Val]) -> Result<(), String>
             Val::F64(x) => {
                 if let Some(y) = target.as_f64() {
                     if *x != y.to_bits() {
-                        return Err(format!("Expected {}, got {}", y, x));
+                        return Err(format!("Expected {}, got {}", y, f64::from_bits(*x)));
                     }
                 } else {
                     return Err(String::from("Unexpected return type"));

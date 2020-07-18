@@ -2,9 +2,11 @@ use std::fs;
 
 mod engine;
 mod parser;
+mod cli;
 
 fn main() {
-    let yaml = fs::read_to_string("wasm/mult.yaml");
+    let config = cli::parse();
+    let yaml = fs::read_to_string(config.path);
     let yaml = match yaml {
         Ok(s) => s,
         Err(err) => {
@@ -21,3 +23,4 @@ fn main() {
     };
     engine::run_test(test);
 }
+
