@@ -1,3 +1,5 @@
+use colored::*;
+
 struct Error {
     fun: String,
     message: String,
@@ -31,7 +33,8 @@ impl ErrorHandler {
     /// Print all errors previously reported.
     pub fn print(&self) {
         for error in &self.errors {
-            println!("In {}: {}", error.fun, error.message);
+            let text = format!("In {}: {}", error.fun.bold(), error.message);
+            println!("{}", text.red());
         }
     }
 }

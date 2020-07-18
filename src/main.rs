@@ -1,5 +1,7 @@
 use std::fs;
 
+use colored::Colorize;
+
 mod engine;
 mod parser;
 mod cli;
@@ -28,6 +30,7 @@ fn main() {
     if handler.has_error() {
         std::process::exit(1);
     } else {
+        println!("{}", "Success".bold().green());
         std::process::exit(0);
     }
 }
