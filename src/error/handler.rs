@@ -1,4 +1,4 @@
-use colored::*;
+use colored::Colorize;
 
 struct Error {
     fun: String,

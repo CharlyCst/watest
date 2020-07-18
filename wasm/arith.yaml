@@ -1,0 +1,51 @@
+file: 'wasm/arith.wasm'
+funs:
+  mult:
+    args: [f32, f32]
+    out: f32
+    test:
+      with:
+        - [2, 3]
+        - [3.14, 2]
+        - [4.2, -2]
+      expect:
+        - 6
+        - 6.28
+        - -8.4
+  div:
+    args: [f32, f32]
+    out: f32
+    test:
+      with:
+        - [4, 2]
+        - [-3, 2]
+        - [-3, -2]
+      expect:
+        - 2
+        - -1.5
+        - 1.5
+  add:
+    args: [i32, i32]
+    out: i32
+    test:
+      with:
+        - [2, 3]
+        - [-5, 2]
+        - [0, 1]
+      expect:
+        - 5
+        - -3
+        - 1
+  sub:
+    args: [i32, i32]
+    out: i32
+    test:
+      with:
+        - [2, 3]
+        - [-2, -3]
+        - [2, -3]
+      expect:
+        - -1
+        - 1
+        - 5
+
