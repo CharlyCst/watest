@@ -5,11 +5,18 @@ use crate::parser::{Fun, Module as ModuleSpec, Type};
 use crate::error::ErrorHandler;
 
 pub fn run_test(module_spec: ModuleSpec) -> ErrorHandler {
+    let mut handler = ErrorHandler::new();
     let engine = Engine::default();
-    let module = Module::from_file(&engine, module_spec.path).unwrap();
+    let module = match Module::from_file(&engine, &module_spec.path) {
+        Ok(module) => module,
+        Err(_) => {
+            eprintln!("Unable to open wasm module: path '{}' does not exist or is not a valid module.", &module_spec.path.to_str().unwrap_or("PATH_ERROR"));
+            handler.silent_report();
+            return handler;
+        }
+    };
     let store = Store::new(&engine);
     let instance = Instance::new(&store, &module, &[]).unwrap();
-    let mut handler = ErrorHandler::new();
 
     for fun in &module_spec.funs {
         test_fun(fun, &instance, &mut handler);

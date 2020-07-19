@@ -24,6 +24,11 @@ impl ErrorHandler {
         self.has_error
     }
 
+    /// Declare an error, but no text will ever be printed for it.
+    pub fn silent_report(&mut self) {
+        self.has_error = true;
+    }
+
     /// Report an error.
     pub fn report(&mut self, fun: String, message: String) {
         self.has_error = true;
